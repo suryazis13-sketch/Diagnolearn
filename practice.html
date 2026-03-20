@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Practice Session — LearnAI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <span class="pulse"></span>
+      LEARN<span style="color:var(--amber)">AI</span>
+    </a>
+    <span class="nav-badge">Practice Session</span>
+  </div>
+</nav>
+
+<div class="container" style="padding-top:36px; padding-bottom:60px;">
+
+{% if not result %}
+
+  <div style="text-align:center; padding:80px 24px;" class="fade-in">
+    <div style="font-size:40px; margin-bottom:16px;">✏️</div>
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; margin-bottom:12px; color:var(--text-mid);">No session found</h2>
+    <p style="color:var(--text-dim); margin-bottom:24px; font-size:13px;">Upload an answer sheet first to get targeted practice questions.</p>
+    <a href="/" class="btn btn-primary">← Upload Answer Sheet</a>
+  </div>
+
+{% else %}
+
+  {% set plan     = result.plan %}
+  {% set analysis = result.analysis %}
+  {% set pqs      = plan.practice_questions | default([]) %}
+
+  <!-- All data passed to JS via a single hidden element — NO Jinja2 inside script tags -->
+  <div id="appData"
+       data-total="{{ pqs | length }}"
+       style="display:none;">
+  </div>
+
+  <!-- HEADER -->
+  <div class="fade-in" style="margin-bottom:28px;">
+    <div class="hero-tag" style="margin-bottom:12px; display:inline-flex;">✏️ Targeted Practice</div>
+    <h1 style="font-family:'Syne',sans-serif; font-size:clamp(22px,4vw,34px); font-weight:800; letter-spacing:-1px; margin-bottom:4px;">
+      Practice Session
+    </h1>
+    <p style="color:var(--text-dim); font-size:12px;">
+      {{ result.student_name }} &middot; {{ pqs | length }} questions targeting your weak areas
+    </p>
+  </div>
+
+  <!-- PROGRESS BAR -->
+  <div class="prog-bar fade-in d1">
+    <div class="prog-fill" id="progFill" style="width:0%"></div>
+  </div>
+
+  <!-- WEAK TOPICS REMINDER -->
+  {% if analysis.weak_topics %}
+  <div class="focus-box fade-in d1" style="margin-bottom:24px;">
+    <span>🎯</span>
+    <div>
+      <div style="font-size:10px; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px;">Targeting these weak areas</div>
+      {% for t in analysis.weak_topics %}
+        <span class="chip" style="color:var(--amber); border-color:var(--amber-dim);">{{ t.topic }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- PRACTICE QUESTIONS -->
+  {% if pqs %}
+  <div class="sh fade-in d2">Questions</div>
+
+  {% for q in pqs %}
+  <div class="pq-card fade-in"
+       data-id="{{ loop.index }}"
+       data-answer="{{ q.answer | default('') | e }}"
+       data-explanation="{{ q.explanation | default('Refer to NCERT for detailed solution.') | e }}"
+       data-idx="{{ loop.index }}">
+
+    <div class="pq-meta">
+      <span class="pq-num">Q{{ loop.index }} / {{ pqs | length }}</span>
+      <span class="pq-topic">{{ q.topic | default('') }}</span>
+      <span class="diff-badge diff-{{ q.difficulty | default('Medium') }}">{{ q.difficulty | default('Medium') }}</span>
+    </div>
+
+    <div class="pq-text">{{ q.question }}</div>
+
+    <!-- Input — idx stored in data attribute, read by JS -->
+    <div class="pq-input-row" data-for="{{ loop.index }}">
+      <input type="text"
+             class="pq-ans-input"
+             data-idx="{{ loop.index }}"
+             placeholder="Type your answer..."/>
+      <button class="btn btn-primary pq-check-btn"
+              style="padding:11px 20px; font-size:13px;"
+              data-idx="{{ loop.index }}">
+        Check
+      </button>
+    </div>
+
+    <!-- Feedback -->
+    <div class="pq-feedback" id="feedback-{{ loop.index }}"></div>
+
+    <!-- Explanation -->
+    <div class="pq-explanation" id="explanation-{{ loop.index }}">
+      <strong style="color:var(--cyan); font-size:11px; letter-spacing:1px; display:block; margin-bottom:6px;">
+        STEP-BY-STEP SOLUTION
+      </strong>
+      {{ q.explanation | default('Refer to NCERT for detailed solution.') }}
+    </div>
+
+    <!-- Hint -->
+    <div class="pq-hint" id="hint-{{ loop.index }}">
+      💡 {{ q.hint | default('Review the relevant concept and try again.') }}
+    </div>
+
+    <!-- Buttons — idx in data attribute, no Jinja2 in onclick -->
+    <div class="pq-actions">
+      <button class="pq-btn hint-btn pq-hint-btn" data-idx="{{ loop.index }}">💡 Hint</button>
+      <button class="pq-btn pq-reveal-btn"        data-idx="{{ loop.index }}">Show Answer</button>
+    </div>
+
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <div style="color:var(--text-dim); padding:40px 0; font-size:13px; text-align:center;">
+    No practice questions generated.<br/>
+    <a href="/" style="color:var(--amber); text-decoration:none;">Try uploading again ↗</a>
+  </div>
+  {% endif %}
+
+  <!-- COMPLETION BANNER -->
+  <div class="complete-banner" id="completeBanner">
+    <div style="font-size:36px; margin-bottom:12px;">🎉</div>
+    <div style="font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--green); margin-bottom:8px;">
+      Session Complete!
+    </div>
+    <div style="color:var(--text-mid); font-size:13px; margin-bottom:24px;">
+      You have worked through all the practice questions. Keep this up every day!
+    </div>
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <a href="/" class="btn btn-primary">Upload Another Sheet →</a>
+      <a href="/report" class="btn btn-outline">← Back to Report</a>
+    </div>
+  </div>
+
+  <div class="action-row fade-in">
+    <a href="/report" class="btn btn-outline">← Back to Report</a>
+    <a href="/" class="btn btn-outline">New Upload</a>
+  </div>
+
+{% endif %}
+
+</div>
+
+<script>
+  var appData  = document.getElementById('appData');
+  var TOTAL    = appData ? parseInt(appData.dataset.total, 10) : 0;
+  var attempted = {};
+
+  // ── Helpers ───────────────────────────────────────────────
+  function getCard(idx) {
+    return document.querySelector('[data-id="' + idx + '"]');
+  }
+
+  function getInput(idx) {
+    var card = getCard(idx);
+    return card ? card.querySelector('.pq-ans-input') : null;
+  }
+
+  function checkAnswer(idx) {
+    var input    = getInput(idx);
+    var feedback = document.getElementById('feedback-' + idx);
+    var card     = getCard(idx);
+    if (!input || !feedback || !card) return;
+
+    var student = input.value.trim().toLowerCase();
+    var correct = (card.getAttribute('data-answer') || '').trim().toLowerCase();
+
+    if (!student) {
+      feedback.className   = 'pq-feedback wrong';
+      feedback.textContent = 'Please type your answer first.';
+      return;
+    }
+
+    attempted[idx] = true;
+    updateProgress();
+
+    var isCorrect = correct.length > 0 && (
+      correct === student ||
+      correct.indexOf(student) !== -1 ||
+      student.indexOf(correct) !== -1
+    );
+
+    if (isCorrect) {
+      feedback.className      = 'pq-feedback correct';
+      feedback.textContent    = '✓ Correct! Great work.';
+      input.style.borderColor = 'var(--green)';
+      var exp = document.getElementById('explanation-' + idx);
+      if (exp) exp.classList.add('visible');
+    } else {
+      feedback.className      = 'pq-feedback wrong';
+      feedback.textContent    = '✗ Not quite. Try the hint or reveal the answer below.';
+      input.style.borderColor = 'var(--red)';
+    }
+  }
+
+  function toggleHint(idx) {
+    var hint = document.getElementById('hint-' + idx);
+    if (hint) hint.classList.toggle('visible');
+  }
+
+  function revealAnswer(idx) {
+    var card     = getCard(idx);
+    var feedback = document.getElementById('feedback-' + idx);
+    var exp      = document.getElementById('explanation-' + idx);
+    if (!card || !feedback) return;
+
+    var answer = card.getAttribute('data-answer') || 'Refer to NCERT';
+    feedback.className   = 'pq-feedback correct';
+    feedback.textContent = '✓ Answer: ' + answer;
+    if (exp) exp.classList.add('visible');
+
+    attempted[idx] = true;
+    updateProgress();
+  }
+
+  function updateProgress() {
+    var done = Object.keys(attempted).length;
+    var pct  = TOTAL > 0 ? (done / TOTAL) * 100 : 0;
+    var fill = document.getElementById('progFill');
+    if (fill) fill.style.width = pct + '%';
+
+    if (TOTAL > 0 && done >= TOTAL) {
+      setTimeout(function() {
+        var banner = document.getElementById('completeBanner');
+        if (banner) {
+          banner.classList.add('visible');
+          banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+    }
+  }
+
+  // ── Event delegation — no onclick in HTML needed ──────────
+  document.addEventListener('click', function(e) {
+    // Check button
+    if (e.target.classList.contains('pq-check-btn')) {
+      checkAnswer(parseInt(e.target.getAttribute('data-idx'), 10));
+    }
+    // Hint button
+    if (e.target.classList.contains('pq-hint-btn')) {
+      toggleHint(parseInt(e.target.getAttribute('data-idx'), 10));
+    }
+    // Reveal button
+    if (e.target.classList.contains('pq-reveal-btn')) {
+      revealAnswer(parseInt(e.target.getAttribute('data-idx'), 10));
+    }
+  });
+
+  // Enter key on any input
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.classList.contains('pq-ans-input')) {
+      checkAnswer(parseInt(e.target.getAttribute('data-idx'), 10));
+    }
+  });
+</script>
+
+</body>
+</html>

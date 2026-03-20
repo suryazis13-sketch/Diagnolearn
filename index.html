@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Learning Diagnosis Engine</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <style>
+    .upload-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .upload-box {
+      border: 2px dashed var(--border2);
+      border-radius: var(--radius-lg);
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg3);
+      position: relative;
+    }
+
+    .upload-box:hover,
+    .upload-box.dragover {
+      border-color: var(--amber);
+      background: var(--amber-glow2);
+    }
+
+    .upload-box.filled {
+      border-color: var(--green);
+      border-style: solid;
+    }
+
+    .upload-box .box-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+    .upload-box .box-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .upload-box .box-sub   { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.5; }
+    .upload-box .box-tag   { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+                             padding: 3px 10px; border-radius: 4px; margin-bottom: 10px; display: inline-block; }
+    .box-tag.required      { color: var(--amber); border: 1px solid var(--amber-dim); background: var(--amber-glow2); }
+    .box-tag.optional      { color: var(--cyan);  border: 1px solid var(--cyan-dim);  background: rgba(34,211,238,0.05); }
+
+    .file-status {
+      font-size: 11px;
+      margin-top: 10px;
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      display: none;
+    }
+
+    .file-status.ok  { display: block; color: var(--green); background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+    .file-status.err { display: block; color: var(--red);   background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 120px;
+      border-radius: var(--radius);
+      margin-top: 10px;
+      display: none;
+      object-fit: contain;
+    }
+
+    .pdf-preview {
+      display: none;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--cyan);
+      padding: 8px;
+      background: rgba(34,211,238,0.06);
+      border: 1px solid var(--cyan-dim);
+      border-radius: var(--radius);
+    }
+
+    @media (max-width: 580px) {
+      .upload-pair { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <span class="pulse"></span>
+      LEARN<span style="color:var(--amber)">AI</span>
+    </a>
+    <span class="nav-badge">Vision Edition</span>
+  </div>
+</nav>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader-title">Analysing Your Papers</div>
+  <div class="loader-steps">
+    <div class="loader-step" id="step1">
+      <span class="step-dot"></span> Reading question paper with Gemini Vision
+    </div>
+    <div class="loader-step" id="step2">
+      <span class="step-dot"></span> Reading student answer sheet
+    </div>
+    <div class="loader-step" id="step3">
+      <span class="step-dot"></span> Comparing answers and detecting mistakes
+    </div>
+    <div class="loader-step" id="step4">
+      <span class="step-dot"></span> Building personalised study plan
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero fade-in">
+    <div class="hero-tag">📸 AI-Powered · Question Paper + Answer Sheet</div>
+    <h1>Upload Both Papers.<br/><em>Fix Every Gap.</em></h1>
+    <p class="hero-sub">
+      Upload the question paper and the student's answer sheet.
+      Our AI compares them, finds every mistake, maps knowledge gaps,
+      and builds a personalised study plan in seconds.
+    </p>
+    <button class="btn btn-demo" id="demoBtn">
+      ⚡ Load Demo (no upload needed)
+    </button>
+  </div>
+
+  <!-- FORM CARD -->
+  <div class="card fade-in d2" style="margin-bottom:48px;">
+
+    <!-- STUDENT DETAILS -->
+    <div class="card-label">Student Details</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Student Name</label>
+        <input type="text" id="studentName" placeholder="e.g. Aryan Sharma"/>
+      </div>
+      <div class="form-group">
+        <label>Subject</label>
+        <select id="subject">
+          <option>Mathematics — Class 10</option>
+          <option selected>Mathematics — Class 12</option>
+          <option>Mathematics — Class 11</option>
+          <option>Physics — Class 12</option>
+          <option>Chemistry — Class 12</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- UPLOAD SECTION -->
+    <div class="card-label" style="margin-top:8px;">Upload Papers</div>
+
+    <div class="upload-pair">
+
+      <!-- QUESTION PAPER -->
+      <div>
+        <div class="upload-box" id="qpBox">
+          <span class="box-tag required">Required</span>
+          <span class="box-icon">📋</span>
+          <div class="box-title">Question Paper</div>
+          <div class="box-sub">PDF, JPG, PNG, WEBP<br/>Max 16MB</div>
+          <button class="btn btn-outline" style="font-size:12px; padding:8px 16px;" id="qpChooseBtn">
+            Choose File
+          </button>
+          <img class="preview-img" id="qpPreview" alt="Question paper preview"/>
+          <div class="pdf-preview" id="qpPdfPreview">📄 PDF selected</div>
+          <div class="file-status" id="qpStatus"></div>
+        </div>
+        <input type="file" id="qpInput" accept="image/*,.pdf" style="display:none"/>
+      </div>
+
+      <!-- ANSWER SHEET -->
+      <div>
+        <div class="upload-box" id="asBox">
+          <span class="box-tag required">Required</span>
+          <span class="box-icon">✍️</span>
+          <div class="box-title">Answer Sheet</div>
+          <div class="box-sub">PDF, JPG, PNG, WEBP<br/>Max 16MB</div>
+          <button class="btn btn-outline" style="font-size:12px; padding:8px 16px;" id="asChooseBtn">
+            Choose File
+          </button>
+          <img class="preview-img" id="asPreview" alt="Answer sheet preview"/>
+          <div class="pdf-preview" id="asPdfPreview">📄 PDF selected</div>
+          <div class="file-status" id="asStatus"></div>
+        </div>
+        <input type="file" id="asInput" accept="image/*,.pdf" style="display:none"/>
+      </div>
+
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="action-row">
+      <button class="btn btn-primary" id="submitBtn" disabled>
+        🔍 Diagnose My Learning →
+      </button>
+      <span id="submitHint" style="font-size:12px; color:var(--text-dim);">
+        Upload both papers to continue
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  var qpFile = null;
+  var asFile = null;
+
+  var ALLOWED = ['image/jpeg','image/jpg','image/png','image/webp','application/pdf'];
+
+  // ── Wire up file inputs ───────────────────────────────────
+  document.getElementById('qpChooseBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    document.getElementById('qpInput').click();
+  });
+
+  document.getElementById('asChooseBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    document.getElementById('asInput').click();
+  });
+
+  document.getElementById('qpBox').addEventListener('click', function() {
+    document.getElementById('qpInput').click();
+  });
+
+  document.getElementById('asBox').addEventListener('click', function() {
+    document.getElementById('asInput').click();
+  });
+
+  document.getElementById('qpInput').addEventListener('change', function(e) {
+    if (e.target.files[0]) handleFile(e.target.files[0], 'qp');
+  });
+
+  document.getElementById('asInput').addEventListener('change', function(e) {
+    if (e.target.files[0]) handleFile(e.target.files[0], 'as');
+  });
+
+  // ── Drag and drop for both boxes ──────────────────────────
+  ['qpBox','asBox'].forEach(function(id) {
+    var box  = document.getElementById(id);
+    var type = id === 'qpBox' ? 'qp' : 'as';
+
+    box.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      box.classList.add('dragover');
+    });
+
+    box.addEventListener('dragleave', function() {
+      box.classList.remove('dragover');
+    });
+
+    box.addEventListener('drop', function(e) {
+      e.preventDefault();
+      box.classList.remove('dragover');
+      var file = e.dataTransfer.files[0];
+      if (file) handleFile(file, type);
+    });
+  });
+
+  // ── Handle a selected file ────────────────────────────────
+  function handleFile(file, type) {
+    var isPdf  = file.type === 'application/pdf';
+    var isImg  = file.type.startsWith('image/');
+    var sizeMB = file.size / (1024 * 1024);
+
+    var statusEl  = document.getElementById(type + 'Status');
+    var box       = document.getElementById(type + 'Box');
+
+    // Validate
+    if (!isPdf && !isImg) {
+      statusEl.className   = 'file-status err';
+      statusEl.textContent = '✗ Only PDF, JPG, PNG, WEBP allowed';
+      return;
+    }
+
+    if (sizeMB > 16) {
+      statusEl.className   = 'file-status err';
+      statusEl.textContent = '✗ File too large (max 16MB)';
+      return;
+    }
+
+    // Store file
+    if (type === 'qp') qpFile = file;
+    else               asFile = file;
+
+    // Update UI
+    box.classList.add('filled');
+    statusEl.className   = 'file-status ok';
+    statusEl.textContent = '✓ ' + file.name + '  (' + (file.size / 1024).toFixed(0) + ' KB)';
+
+    var previewImg = document.getElementById(type + 'Preview');
+    var pdfBadge   = document.getElementById(type + 'PdfPreview');
+
+    if (isPdf) {
+      previewImg.style.display = 'none';
+      pdfBadge.style.display   = 'block';
+      pdfBadge.textContent     = '📄 ' + file.name;
+    } else {
+      pdfBadge.style.display = 'none';
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        previewImg.src          = e.target.result;
+        previewImg.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    updateSubmitState();
+  }
+
+  // ── Enable submit only when both files are selected ───────
+  function updateSubmitState() {
+    var btn  = document.getElementById('submitBtn');
+    var hint = document.getElementById('submitHint');
+
+    if (qpFile && asFile) {
+      btn.disabled     = false;
+      hint.textContent = '✓ Both papers ready — let\'s go!';
+      hint.style.color = 'var(--green)';
+    } else if (qpFile && !asFile) {
+      btn.disabled     = true;
+      hint.textContent = 'Now upload the answer sheet';
+      hint.style.color = 'var(--amber)';
+    } else if (!qpFile && asFile) {
+      btn.disabled     = true;
+      hint.textContent = 'Now upload the question paper';
+      hint.style.color = 'var(--amber)';
+    } else {
+      btn.disabled     = true;
+      hint.textContent = 'Upload both papers to continue';
+      hint.style.color = 'var(--text-dim)';
+    }
+  }
+
+  // ── Submit ────────────────────────────────────────────────
+  document.getElementById('submitBtn').addEventListener('click', function() {
+    if (!qpFile || !asFile) return;
+
+    var name    = document.getElementById('studentName').value.trim() || 'Student';
+    var subject = document.getElementById('subject').value;
+
+    document.getElementById('loadingOverlay').classList.add('active');
+    animateSteps();
+
+    var formData = new FormData();
+    formData.append('question_paper', qpFile);
+    formData.append('answer_sheet',   asFile);
+    formData.append('student_name',   name);
+    formData.append('subject',        subject);
+
+    fetch('/upload', { method: 'POST', body: formData })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.error) {
+          document.getElementById('loadingOverlay').classList.remove('active');
+          alert('Error: ' + data.error);
+          return;
+        }
+        window.location.href = '/report';
+      })
+      .catch(function() {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        alert('Upload failed. Check the terminal for errors.');
+      });
+  });
+
+  // ── Loading step animation ────────────────────────────────
+  function animateSteps() {
+    var steps = ['step1','step2','step3','step4'];
+    var i = 0;
+    var interval = setInterval(function() {
+      if (i > 0) {
+        document.getElementById(steps[i-1]).classList.remove('active');
+        document.getElementById(steps[i-1]).classList.add('done');
+      }
+      if (i < steps.length) {
+        document.getElementById(steps[i]).classList.add('active');
+        i++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 1800);
+  }
+
+  // ── Demo ──────────────────────────────────────────────────
+  document.getElementById('demoBtn').addEventListener('click', function() {
+    document.getElementById('loadingOverlay').classList.add('active');
+    animateSteps();
+    fetch('/demo')
+      .then(function() {
+        setTimeout(function() { window.location.href = '/report'; }, 4000);
+      })
+      .catch(function() {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        alert('Demo failed. Make sure the server is running.');
+      });
+  });
+</script>
+</body>
+</html>

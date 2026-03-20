@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Diagnosis Report — LearnAI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+  <style>
+    .score-green  { color: var(--green);    }
+    .score-amber  { color: var(--amber);    }
+    .score-red    { color: var(--red);      }
+    .stroke-green { stroke: var(--green);   }
+    .stroke-amber { stroke: var(--amber);   }
+    .stroke-red   { stroke: var(--red);     }
+    .pct-green    { color: var(--green);    }
+    .pct-amber    { color: var(--yellow);   }
+    .pct-red      { color: var(--red);      }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <span class="pulse"></span>
+      LEARN<span style="color:var(--amber)">AI</span>
+    </a>
+    <span class="nav-badge">Diagnosis Report</span>
+  </div>
+</nav>
+
+<div class="container" style="padding-top:36px; padding-bottom:60px;">
+
+{% if not result %}
+
+  <div style="text-align:center; padding:80px 24px;" class="fade-in">
+    <div style="font-size:40px; margin-bottom:16px;">📋</div>
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; margin-bottom:12px; color:var(--text-mid);">No report yet</h2>
+    <p style="color:var(--text-dim); margin-bottom:24px; font-size:13px;">Upload an answer sheet to generate your diagnosis.</p>
+    <a href="/" class="btn btn-primary">← Upload Answer Sheet</a>
+  </div>
+
+{% else %}
+
+  {% set scanned  = result.scanned %}
+  {% set analysis = result.analysis %}
+  {% set plan     = result.plan %}
+  {% set score    = scanned.score_percent | default(0) %}
+
+  <!-- Determine score tier once using Jinja2 (in HTML, not CSS) -->
+  {% if score >= 70 %}
+    {% set score_class  = "score-green"  %}
+    {% set stroke_class = "stroke-green" %}
+    {% set dasharray    = ((score / 100) * 289) | int %}
+  {% elif score >= 40 %}
+    {% set score_class  = "score-amber"  %}
+    {% set stroke_class = "stroke-amber" %}
+    {% set dasharray    = ((score / 100) * 289) | int %}
+  {% else %}
+    {% set score_class  = "score-red"    %}
+    {% set stroke_class = "stroke-red"   %}
+    {% set dasharray    = ((score / 100) * 289) | int %}
+  {% endif %}
+
+  <!-- PAGE HEADER -->
+  <div class="fade-in" style="margin-bottom:28px;">
+    <div class="hero-tag" style="margin-bottom:12px; display:inline-flex;">✓ Analysis Complete</div>
+    <h1 style="font-family:'Syne',sans-serif; font-size:clamp(22px,4vw,36px); font-weight:800; letter-spacing:-1px; margin-bottom:4px;">
+      {{ result.student_name }}'s Report
+    </h1>
+    <p style="color:var(--text-dim); font-size:12px;">{{ result.subject }}</p>
+  </div>
+
+  <!-- SCORE CARD -->
+  <div class="card fade-in d1" style="margin-bottom:20px;">
+    <div class="score-hero">
+
+      <!-- Score Ring -->
+      <div class="score-ring">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle cx="55" cy="55" r="46"
+                  fill="none"
+                  stroke="var(--border2)"
+                  stroke-width="7"/>
+          <circle cx="55" cy="55" r="46"
+                  fill="none"
+                  class="{{ stroke_class }}"
+                  stroke-width="7"
+                  stroke-linecap="round"
+                  stroke-dasharray="{{ dasharray }} 289"/>
+        </svg>
+        <div class="score-ring-center">
+          <span class="score-big {{ score_class }}">{{ score }}</span>
+          <span class="score-label">/ 100</span>
+        </div>
+      </div>
+
+      <!-- Diagnosis -->
+      <div style="flex:1;">
+        <div class="diagnosis-label">AI Diagnosis</div>
+        <div style="font-size:14px; color:var(--text-mid); line-height:1.75;">
+          {{ analysis.overall_diagnosis }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- STATS GRID -->
+  <div class="stats-grid fade-in d2">
+    <div class="stat-box">
+      <div class="stat-val">{{ scanned.total_questions | default(0) }}</div>
+      <div class="stat-lbl">Total Qs</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val score-green">{{ scanned.correct | default(0) }}</div>
+      <div class="stat-lbl">Correct</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val score-red">{{ analysis.total_errors | default(0) }}</div>
+      <div class="stat-lbl">Errors</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val score-amber">{{ analysis.weak_topics | default([]) | length }}</div>
+      <div class="stat-lbl">Weak Areas</div>
+    </div>
+  </div>
+
+  <!-- PRIORITY FOCUS -->
+  {% if analysis.priority_topic %}
+  <div class="focus-box fade-in d2">
+    <span>⚡</span>
+    <span>
+      <strong>Priority this week:</strong>
+      Start with {{ analysis.priority_topic }} — it has the highest impact on your score.
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- WEAK TOPICS -->
+  {% if analysis.weak_topics %}
+  <div class="sh fade-in d3">Weak Areas</div>
+  <div class="card fade-in d3" style="margin-bottom:24px;">
+
+    {% for topic in analysis.weak_topics %}
+
+      {% if topic.mastery_percent < 40 %}
+        {% set bar_class = "fill-red"    %}
+        {% set pct_class = "pct-red"     %}
+      {% elif topic.mastery_percent < 70 %}
+        {% set bar_class = "fill-yellow" %}
+        {% set pct_class = "pct-amber"   %}
+      {% else %}
+        {% set bar_class = "fill-green"  %}
+        {% set pct_class = "pct-green"   %}
+      {% endif %}
+
+      <div class="topic-bar">
+        <div class="topic-bar-header">
+          <span class="topic-name">{{ topic.topic }}</span>
+          <span class="topic-pct {{ pct_class }}">{{ topic.mastery_percent }}% mastery</span>
+        </div>
+        <div class="topic-bar-track">
+          <div class="topic-bar-fill {{ bar_class }}"
+               data-width="{{ topic.mastery_percent }}">
+          </div>
+        </div>
+        {% if topic.specific_gaps %}
+        <div class="topic-gaps">
+          {% for gap in topic.specific_gaps %}
+            <span class="gap-tag">{{ gap }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ERROR BREAKDOWN -->
+  {% if analysis.error_breakdown %}
+  <div class="sh fade-in d3">Error Breakdown</div>
+  <div class="error-grid fade-in d3" style="margin-bottom:24px;">
+    <div class="error-box">
+      <span class="error-icon">🧠</span>
+      <div class="error-info">
+        <div class="error-count score-red">{{ analysis.error_breakdown.conceptual_gap | default(0) }}</div>
+        <div class="error-name">Conceptual Gaps</div>
+      </div>
+    </div>
+    <div class="error-box">
+      <span class="error-icon">🔢</span>
+      <div class="error-info">
+        <div class="error-count score-amber">{{ analysis.error_breakdown.calculation_error | default(0) }}</div>
+        <div class="error-name">Calculation Errors</div>
+      </div>
+    </div>
+    <div class="error-box">
+      <span class="error-icon">📝</span>
+      <div class="error-info">
+        <div class="error-count" style="color:var(--yellow);">{{ analysis.error_breakdown.formula_forgotten | default(0) }}</div>
+        <div class="error-name">Forgotten Formulas</div>
+      </div>
+    </div>
+    <div class="error-box">
+      <span class="error-icon">✏️</span>
+      <div class="error-info">
+        <div class="error-count" style="color:var(--text-mid);">{{ analysis.error_breakdown.incomplete_answer | default(0) }}</div>
+        <div class="error-name">Incomplete Answers</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- STRONG TOPICS -->
+  {% if analysis.strong_topics %}
+  <div class="sh fade-in d4">Strong Areas</div>
+  <div class="card fade-in d4" style="margin-bottom:24px;">
+    {% for topic in analysis.strong_topics %}
+    <div class="topic-bar">
+      <div class="topic-bar-header">
+        <span class="topic-name">{{ topic.topic }}</span>
+        <span class="topic-pct pct-green">{{ topic.mastery_percent }}% mastery</span>
+      </div>
+      <div class="topic-bar-track">
+        <div class="topic-bar-fill fill-green"
+             data-width="{{ topic.mastery_percent }}">
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- 4-DAY STUDY PLAN -->
+  {% if plan.study_plan %}
+  <div class="sh fade-in">4-Day Study Plan</div>
+  <div class="fade-in" style="margin-bottom:24px;">
+    {% for day in plan.study_plan %}
+    <div class="day-card">
+      <div class="day-header" onclick="toggleDay('day{{ day.day }}')">
+        <span class="day-num">DAY {{ day.day }}</span>
+        <span class="day-topic">{{ day.focus_topic }}</span>
+        <span class="day-meta">{{ day.duration_minutes }} min</span>
+      </div>
+      <div class="day-body" id="day{{ day.day }}">
+        <ul class="task-list">
+          {% for task in day.tasks %}
+          <li>{{ task }}</li>
+          {% endfor %}
+        </ul>
+        <div class="day-goal">{{ day.goal }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- NCERT RESOURCES -->
+  {% if plan.resources %}
+  <div class="sh fade-in">NCERT Resources</div>
+  <div class="fade-in" style="margin-bottom:24px;">
+    {% for r in plan.resources %}
+    <div class="resource-card">
+      <div class="resource-topic">{{ r.topic }}</div>
+      <div class="resource-chapter">{{ r.ncert_chapter }}</div>
+      {% if r.exercises %}
+      <div style="margin-bottom:6px;">
+        {% for ex in r.exercises %}
+          <span class="chip">{{ ex }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="resource-tip">💡 {{ r.tip }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- MOTIVATIONAL NOTE -->
+  {% if plan.motivational_note %}
+  <div class="focus-box fade-in" style="margin-bottom:28px;">
+    <span>🌟</span>
+    <span>{{ plan.motivational_note }}</span>
+  </div>
+  {% endif %}
+
+  <!-- ACTIONS -->
+  <div class="action-row fade-in">
+    <a href="/practice" class="btn btn-primary">Start Practice Session →</a>
+    <a href="/" class="btn btn-outline">← New Upload</a>
+  </div>
+
+{% endif %}
+</div>
+
+<script>
+  // Animate progress bars on load
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      var bars = document.querySelectorAll('.topic-bar-fill');
+      bars.forEach(function(bar) {
+        bar.style.width = (bar.getAttribute('data-width') || 0) + '%';
+      });
+    }, 400);
+  });
+
+  // Toggle study plan day accordion
+  function toggleDay(id) {
+    var body = document.getElementById(id);
+    if (body) body.classList.toggle('open');
+  }
+
+  // Auto-open Day 1 on load
+  window.addEventListener('load', function() {
+    var d1 = document.getElementById('day1');
+    if (d1) d1.classList.add('open');
+  });
+</script>
+
+</body>
+</html>
